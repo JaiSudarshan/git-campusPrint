@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusPrint - Direct to Class Delivery</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-7">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-body p-4 p-md-5">
+                        <div class="text-center mb-4">
+                            <h2 class="fw-bold text-primary">📄 CampusPrint </h2>
+                            <p class="text-muted">Skip the queue. Upload your files and get them delivered straight to your classroom!</p>
+                        </div>
+
+                        <form action="/" method="POST" enctype="multipart/form-data">
+                            <!-- File Upload -->
+                            <div class="mb-3">
+                                <label for="document" class="form-label fw-semibold">Upload Document (PDF, PNG, JPG)</label>
+                                <input class="form-control" type="file" id="document" name="document" accept=".pdf, .png, .jpg, .jpeg" required>
+                                <div class="form-text">Dummy upload—files won't be permanently saved on a server yet.</div>
+                            </div>
+
+                            <!-- Print Type -->
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Print Type</label>
+                                <div class="d-flex gap-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="print_type" id="bw" value="Black & White (₹2/page)" checked>
+                                        <label class="form-check-label" for="bw">Black & White (₹2/page)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="print_type" id="color" value="Color (₹10/page)">
+                                        <label class="form-check-label" for="color">Color (₹10/page)</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Number of Copies -->
+                            <div class="mb-3">
+                                <label for="copies" class="form-label fw-semibold">Number of Copies</label>
+                                <input type="number" class="form-control" id="copies" name="copies" min="1" value="1" required>
+                            </div>
+
+                            <!-- Delivery Classroom -->
+                            <div class="mb-4">
+                                <label for="classroom" class="form-label fw-semibold">Delivery Classroom / Location</label>
+                                <input type="text" class="form-control" id="classroom" name="classroom" placeholder="e.g., Room 304, CSE Block" required>
+                            </div>
+
+                            <!-- Payment Mock Section -->
+                            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                                <h6 class="fw-semibold text-secondary mb-2">Payment Method</h6>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="radio" name="payment" id="upi" checked>
+                                    <label class="form-check-label" for="upi">UPI / Google Pay / PhonePe</label>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">Proceed to Payment & Print</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
