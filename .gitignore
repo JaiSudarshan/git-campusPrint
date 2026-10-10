@@ -1,0 +1,18 @@
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp

@@ -1,71 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CampusPrint - Direct to Class Delivery</title>
-    <!-- Bootstrap 5 CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body class="bg-light">
 
     <div class="container py-5">
         <div class="row justify-content-center">
-            <div class="col-md-7">
+            <div class="col-lg-8">
                 <div class="card shadow-sm border-0 rounded-4">
                     <div class="card-body p-4 p-md-5">
                         <div class="text-center mb-4">
-                            <h2 class="fw-bold text-primary">📄 CampusPrint </h2>
-                            <p class="text-muted">Skip the queue. Upload your files and get them delivered straight to your classroom!</p>
+                            <h2 class="fw-bold text-primary">📄 CampusPrint</h2>
+                            <p class="text-muted">Skip the queue. Upload your files and get them delivered straight to
+                                your classroom!</p>
                         </div>
 
-                        <form action="/" method="POST" enctype="multipart/form-data">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                        {% endfor %}
+                        {% endwith %}
+
+                        <form id="orderForm" action="{{ url_for('index') }}" method="POST"
+                            enctype="multipart/form-data">
+
                             <!-- File Upload -->
                             <div class="mb-3">
-                                <label for="document" class="form-label fw-semibold">Upload Document (PDF, PNG, JPG)</label>
-                                <input class="form-control" type="file" id="document" name="document" accept=".pdf, .png, .jpg, .jpeg" required>
-                                <div class="form-text">Dummy upload—files won't be permanently saved on a server yet.</div>
-                            </div>
-
-                            <!-- Print Type -->
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Print Type</label>
-                                <div class="d-flex gap-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="print_type" id="bw" value="Black & White (₹2/page)" checked>
-                                        <label class="form-check-label" for="bw">Black & White (₹2/page)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="print_type" id="color" value="Color (₹10/page)">
-                                        <label class="form-check-label" for="color">Color (₹10/page)</label>
-                                    </div>
+                                <label for="documents" class="form-label fw-semibold">Upload Documents (PDF, PNG,
+                                    JPG)</label>
+                                <input class="form-control" type="file" id="documents" name="documents"
+                                    accept=".pdf,.png,.jpg,.jpeg" multiple>
+                                <div class="form-text">Up to 10 files, 25 MB total. You can add files in several steps.
                                 </div>
                             </div>
 
-                            <!-- Number of Copies -->
-                            <div class="mb-3">
-                                <label for="copies" class="form-label fw-semibold">Number of Copies</label>
-                                <input type="number" class="form-control" id="copies" name="copies" min="1" value="1" required>
-                            </div>
+                            <!-- Selected files + per-file options -->
+                            <div id="fileList" class="mb-3"></div>
+                            <div id="clientError" class="alert alert-danger d-none" role="alert"></div>
 
                             <!-- Delivery Classroom -->
                             <div class="mb-4">
-                                <label for="classroom" class="form-label fw-semibold">Delivery Classroom / Location</label>
-                                <input type="text" class="form-control" id="classroom" name="classroom" placeholder="e.g., Room 304, CSE Block" required>
+                                <label for="classroom" class="form-label fw-semibold">Delivery Classroom /
+                                    Location</label>
+                                <input type="text" class="form-control" id="classroom" name="classroom" maxlength="100"
+                                    placeholder="e.g., Room 304, CSE Block" value="{{ classroom }}" required>
                             </div>
 
-                            <!-- Payment Mock Section -->
                             <div class="card bg-light border-0 p-3 mb-4 rounded-3">
-                                <h6 class="fw-semibold text-secondary mb-2">Payment Method</h6>
-                                <div class="form-check mb-1">
-                                    <input class="form-check-input" type="radio" name="payment" id="upi" checked>
-                                    <label class="form-check-label" for="upi">UPI / Google Pay / PhonePe</label>
-                                </div>
+                                <h6 class="fw-semibold text-secondary mb-1">Payment</h6>
+                                <p class="small text-muted mb-0">Pay the runner on delivery (cash / UPI).</p>
                             </div>
 
-                            <!-- Submit Button -->
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">Proceed to Payment & Print</button>
+                                <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">Place
+                                    Order</button>
                             </div>
                         </form>
                     </div>
@@ -74,5 +68,110 @@
         </div>
     </div>
 
+    <script>
+        (function () {
+            const MAX_FILES = 10;
+            const input = document.getElementById('documents');
+            const list = document.getElementById('fileList');
+            const errBox = document.getElementById('clientError');
+            const form = document.getElementById('orderForm');
+            const allowed = ['pdf', 'png', 'jpg', 'jpeg'];
+
+            // state[i] = { file, type, copies }
+            const state = [];
+
+            function showError(msg) {
+                errBox.textContent = msg;
+                errBox.classList.toggle('d-none', !msg);
+            }
+
+            function fmtSize(bytes) {
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            function icon(name) {
+                return name.toLowerCase().endsWith('.pdf') ? '📕' : '🖼️';
+            }
+
+            function render() {
+                list.innerHTML = '';
+                const dt = new DataTransfer();
+
+                state.forEach(function (item, i) {
+                    dt.items.add(item.file);
+
+                    const row = document.createElement('div');
+                    row.className = 'd-flex flex-wrap align-items-center gap-2 border rounded-3 p-2 mb-2 bg-white';
+                    row.innerHTML =
+                        '<div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width:160px;max-width:100%">' +
+                        '<span class="fs-4 file-icon"></span>' +
+                        '<div class="text-truncate">' +
+                        '<div class="fw-semibold text-truncate file-name"></div>' +
+                        '<div class="small text-muted file-size"></div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<select name="print_type" class="form-select form-select-sm w-auto" aria-label="Print type">' +
+                        '<option value="bw">B/W (₹2/page)</option>' +
+                        '<option value="color">Color (₹10/page)</option>' +
+                        '</select>' +
+                        '<div class="input-group input-group-sm w-auto">' +
+                        '<span class="input-group-text">Copies</span>' +
+                        '<input type="number" name="copies" class="form-control" min="1" max="100" required style="max-width:80px">' +
+                        '</div>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger" aria-label="Remove file">✕</button>';
+
+                    row.querySelector('.file-icon').textContent = icon(item.file.name);
+                    row.querySelector('.file-name').textContent = item.file.name;
+                    row.querySelector('.file-size').textContent = fmtSize(item.file.size);
+
+                    const sel = row.querySelector('select');
+                    const num = row.querySelector('input[type=number]');
+                    sel.value = item.type;
+                    num.value = item.copies;
+
+                    sel.addEventListener('change', function () { item.type = sel.value; });
+                    num.addEventListener('input', function () { item.copies = num.value; });
+                    row.querySelector('button').addEventListener('click', function () {
+                        state.splice(i, 1);
+                        render();
+                    });
+
+                    list.appendChild(row);
+                });
+
+                // Keep the real file input in sync with the list, in the same order
+                input.files = dt.files;
+            }
+
+            input.addEventListener('change', function () {
+                showError('');
+                const rejected = [];
+
+                Array.from(input.files).forEach(function (f) {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    const dup = state.some(function (s) {
+                        return s.file.name === f.name && s.file.size === f.size && s.file.lastModified === f.lastModified;
+                    });
+                    if (allowed.indexOf(ext) === -1) { rejected.push(f.name + ' (unsupported type)'); return; }
+                    if (dup) return;
+                    if (state.length >= MAX_FILES) { rejected.push(f.name + ' (max ' + MAX_FILES + ' files)'); return; }
+                    state.push({ file: f, type: 'bw', copies: 1 });
+                });
+
+                if (rejected.length) showError('Skipped: ' + rejected.join(', '));
+                render();
+            });
+
+            form.addEventListener('submit', function (e) {
+                if (state.length === 0) {
+                    e.preventDefault();
+                    showError('Please choose at least one file to upload.');
+                }
+            });
+        })();
+    </script>
+
 </body>
+
 </html>
