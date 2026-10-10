@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Runner sign in · CampusPrint{% endblock %}
+
+{% block content %}
+<h1>Runner sign in</h1>
+<p class="lede">Enter the runner password to see incoming orders.</p>
+
+<form class="card" method="POST" action="{{ url_for('runner_login') }}">
+    <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+    </div>
+    <button type="submit" class="btn block">Sign in</button>
+</form>
+{% endblock %}

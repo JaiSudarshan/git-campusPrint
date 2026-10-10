@@ -1,177 +1,253 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% block title %}CampusPrint · Printouts delivered to your class{% endblock %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CampusPrint - Direct to Class Delivery</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+{% block content %}
+<h1>Printouts, delivered to your class.</h1>
+<p class="lede">Upload your files, choose how to print them, and a runner brings them to your classroom.</p>
 
-<body class="bg-light">
+<form id="orderForm" class="card" action="{{ url_for('index') }}" method="POST" enctype="multipart/form-data">
 
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card shadow-sm border-0 rounded-4">
-                    <div class="card-body p-4 p-md-5">
-                        <div class="text-center mb-4">
-                            <h2 class="fw-bold text-primary">📄 CampusPrint</h2>
-                            <p class="text-muted">Skip the queue. Upload your files and get them delivered straight to
-                                your classroom!</p>
-                        </div>
+    <div class="label">Documents</div>
+    <label class="dropzone" id="dropzone" for="documents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <strong>Drop files here or browse</strong>
+        <span>PDF, PNG or JPG · up to 10 files · 25 MB total</span>
+    </label>
+    <input class="visually-hidden" type="file" id="documents" name="documents" accept=".pdf,.png,.jpg,.jpeg" multiple>
 
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
-                        {% endfor %}
-                        {% endwith %}
-
-                        <form id="orderForm" action="{{ url_for('index') }}" method="POST"
-                            enctype="multipart/form-data">
-
-                            <!-- File Upload -->
-                            <div class="mb-3">
-                                <label for="documents" class="form-label fw-semibold">Upload Documents (PDF, PNG,
-                                    JPG)</label>
-                                <input class="form-control" type="file" id="documents" name="documents"
-                                    accept=".pdf,.png,.jpg,.jpeg" multiple>
-                                <div class="form-text">Up to 10 files, 25 MB total. You can add files in several steps.
-                                </div>
-                            </div>
-
-                            <!-- Selected files + per-file options -->
-                            <div id="fileList" class="mb-3"></div>
-                            <div id="clientError" class="alert alert-danger d-none" role="alert"></div>
-
-                            <!-- Delivery Classroom -->
-                            <div class="mb-4">
-                                <label for="classroom" class="form-label fw-semibold">Delivery Classroom /
-                                    Location</label>
-                                <input type="text" class="form-control" id="classroom" name="classroom" maxlength="100"
-                                    placeholder="e.g., Room 304, CSE Block" value="{{ classroom }}" required>
-                            </div>
-
-                            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
-                                <h6 class="fw-semibold text-secondary mb-1">Payment</h6>
-                                <p class="small text-muted mb-0">Pay the runner on delivery (cash / UPI).</p>
-                            </div>
-
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">Place
-                                    Order</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div id="files" class="files"></div>
+    <div id="clientError" class="alert danger hidden" role="alert" style="margin-top:12px"></div>
+    <div id="summary" class="summary hidden">
+        <span id="sumText"></span>
+        <strong id="sumTotal"></strong>
     </div>
 
-    <script>
-        (function () {
-            const MAX_FILES = 10;
-            const input = document.getElementById('documents');
-            const list = document.getElementById('fileList');
-            const errBox = document.getElementById('clientError');
-            const form = document.getElementById('orderForm');
-            const allowed = ['pdf', 'png', 'jpg', 'jpeg'];
+    <div class="section-title">Delivery details</div>
+    <div class="row">
+        <div class="field">
+            <label for="name">Your name</label>
+            <input type="text" id="name" name="name" maxlength="80" autocomplete="name" value="{{ form.get('name', '') }}" required>
+        </div>
+        <div class="field">
+            <label for="phone">Phone <span class="optional">(optional)</span></label>
+            <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel" value="{{ form.get('phone', '') }}">
+        </div>
+    </div>
+    <div class="field">
+        <label for="classroom">Classroom / location</label>
+        <input type="text" id="classroom" name="classroom" maxlength="100" placeholder="e.g. Room 304, CSE Block" value="{{ form.get('classroom', '') }}" required>
+    </div>
 
-            // state[i] = { file, type, copies }
-            const state = [];
+    <div class="note"><strong>Pay on delivery.</strong> Hand the runner cash or pay by UPI when your printouts arrive.</div>
 
-            function showError(msg) {
-                errBox.textContent = msg;
-                errBox.classList.toggle('d-none', !msg);
-            }
+    <button id="submitBtn" type="submit" class="btn block">Place order</button>
+</form>
+{% endblock %}
 
-            function fmtSize(bytes) {
-                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-            }
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+    var MAX_FILES = 10;
+    var MAX_TOTAL = 25 * 1024 * 1024;
+    var RATES = { bw: 2, color: 10 };
+    var ALLOWED = ['pdf', 'png', 'jpg', 'jpeg'];
 
-            function icon(name) {
-                return name.toLowerCase().endsWith('.pdf') ? '📕' : '🖼️';
-            }
+    var input = document.getElementById('documents');
+    var zone = document.getElementById('dropzone');
+    var list = document.getElementById('files');
+    var errBox = document.getElementById('clientError');
+    var form = document.getElementById('orderForm');
+    var submitBtn = document.getElementById('submitBtn');
+    var summary = document.getElementById('summary');
+    var sumText = document.getElementById('sumText');
+    var sumTotal = document.getElementById('sumTotal');
 
-            function render() {
-                list.innerHTML = '';
-                const dt = new DataTransfer();
+    if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
-                state.forEach(function (item, i) {
-                    dt.items.add(item.file);
+    // Each entry: { file, type, copies, pages, thumb, isPdf, thumbEl, metaEl }
+    var state = [];
 
-                    const row = document.createElement('div');
-                    row.className = 'd-flex flex-wrap align-items-center gap-2 border rounded-3 p-2 mb-2 bg-white';
-                    row.innerHTML =
-                        '<div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width:160px;max-width:100%">' +
-                        '<span class="fs-4 file-icon"></span>' +
-                        '<div class="text-truncate">' +
-                        '<div class="fw-semibold text-truncate file-name"></div>' +
-                        '<div class="small text-muted file-size"></div>' +
-                        '</div>' +
-                        '</div>' +
-                        '<select name="print_type" class="form-select form-select-sm w-auto" aria-label="Print type">' +
-                        '<option value="bw">B/W (₹2/page)</option>' +
-                        '<option value="color">Color (₹10/page)</option>' +
-                        '</select>' +
-                        '<div class="input-group input-group-sm w-auto">' +
-                        '<span class="input-group-text">Copies</span>' +
-                        '<input type="number" name="copies" class="form-control" min="1" max="100" required style="max-width:80px">' +
-                        '</div>' +
-                        '<button type="button" class="btn btn-sm btn-outline-danger" aria-label="Remove file">✕</button>';
+    function ext(name) { return name.split('.').pop().toLowerCase(); }
+    function totalSize() { return state.reduce(function (s, i) { return s + i.file.size; }, 0); }
+    function fmtSize(b) { return b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
+    function clampCopies(v) { v = parseInt(v, 10); if (isNaN(v) || v < 1) v = 1; return v > 100 ? 100 : v; }
+    function showError(msg) { errBox.textContent = msg; errBox.classList.toggle('hidden', !msg); }
 
-                    row.querySelector('.file-icon').textContent = icon(item.file.name);
-                    row.querySelector('.file-name').textContent = item.file.name;
-                    row.querySelector('.file-size').textContent = fmtSize(item.file.size);
+    function metaText(item) {
+        var t = fmtSize(item.file.size);
+        if (item.pages) t += ' · ' + item.pages + (item.pages === 1 ? ' page' : ' pages');
+        return t;
+    }
 
-                    const sel = row.querySelector('select');
-                    const num = row.querySelector('input[type=number]');
-                    sel.value = item.type;
-                    num.value = item.copies;
+    function updateSummary() {
+        if (!state.length) { summary.classList.add('hidden'); return; }
+        var sheets = 0, cost = 0;
+        state.forEach(function (i) {
+            var p = i.pages || 1;
+            sheets += p * i.copies;
+            cost += p * i.copies * RATES[i.type];
+        });
+        sumText.textContent = state.length + (state.length === 1 ? ' file' : ' files') + ' · ' + sheets + (sheets === 1 ? ' page' : ' pages') + ' to print';
+        sumTotal.textContent = '≈ ₹' + cost;
+        summary.classList.remove('hidden');
+    }
 
-                    sel.addEventListener('change', function () { item.type = sel.value; });
-                    num.addEventListener('input', function () { item.copies = num.value; });
-                    row.querySelector('button').addEventListener('click', function () {
-                        state.splice(i, 1);
-                        render();
-                    });
+    function refreshItem(item) {
+        if (item.thumbEl && item.thumb && !item.thumbEl.querySelector('img')) {
+            var img = document.createElement('img');
+            img.alt = '';
+            img.src = item.thumb;
+            item.thumbEl.appendChild(img);
+        }
+        if (item.metaEl) item.metaEl.textContent = metaText(item);
+        updateSummary();
+    }
 
-                    list.appendChild(row);
+    // First-page preview: images use the file itself, PDFs are drawn with pdf.js
+    function makeThumb(item) {
+        if (!item.isPdf) {
+            item.pages = 1;
+            item.thumb = URL.createObjectURL(item.file);
+            return;
+        }
+        if (!window.pdfjsLib) return;
+        item.file.arrayBuffer().then(function (buf) {
+            return pdfjsLib.getDocument({ data: buf }).promise;
+        }).then(function (pdf) {
+            item.pages = pdf.numPages;
+            return pdf.getPage(1).then(function (page) {
+                var base = page.getViewport({ scale: 1 });
+                var vp = page.getViewport({ scale: 140 / base.width });
+                var canvas = document.createElement('canvas');
+                canvas.width = Math.floor(vp.width);
+                canvas.height = Math.floor(vp.height);
+                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise.then(function () {
+                    item.thumb = canvas.toDataURL('image/jpeg', 0.75);
                 });
+            });
+        }).catch(function () { /* keep the placeholder */ }).then(function () { refreshItem(item); });
+    }
 
-                // Keep the real file input in sync with the list, in the same order
-                input.files = dt.files;
+    function render() {
+        list.innerHTML = '';
+        var dt = new DataTransfer();
+
+        state.forEach(function (item) {
+            dt.items.add(item.file);
+
+            var row = document.createElement('div');
+            row.className = 'file';
+            row.innerHTML =
+                '<div class="thumb"></div>' +
+                '<div class="file-info"><div class="file-name"></div><div class="file-meta"></div></div>' +
+                '<div class="file-controls">' +
+                    '<div class="seg" role="group" aria-label="Print type">' +
+                        '<button type="button" data-type="bw">B/W</button>' +
+                        '<button type="button" data-type="color">Color</button>' +
+                    '</div>' +
+                    '<div class="stepper">' +
+                        '<button type="button" data-step="-1" aria-label="Fewer copies">−</button>' +
+                        '<input type="number" name="copies" min="1" max="100" aria-label="Copies">' +
+                        '<button type="button" data-step="1" aria-label="More copies">+</button>' +
+                    '</div>' +
+                    '<input type="hidden" name="print_type">' +
+                    '<button type="button" class="icon-btn" aria-label="Remove file">✕</button>' +
+                '</div>';
+
+            var thumbEl = row.querySelector('.thumb');
+            thumbEl.setAttribute('data-ext', ext(item.file.name).toUpperCase());
+            row.querySelector('.file-name').textContent = item.file.name;
+            item.thumbEl = thumbEl;
+            item.metaEl = row.querySelector('.file-meta');
+            item.metaEl.textContent = metaText(item);
+            if (item.thumb) refreshItem(item);
+
+            var hidden = row.querySelector('input[name=print_type]');
+            var num = row.querySelector('input[name=copies]');
+            var segBtns = row.querySelectorAll('.seg button');
+
+            function paint() {
+                hidden.value = item.type;
+                segBtns.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-type') === item.type); });
+                num.value = item.copies;
             }
+            paint();
 
-            input.addEventListener('change', function () {
+            segBtns.forEach(function (b) {
+                b.addEventListener('click', function () { item.type = b.getAttribute('data-type'); paint(); updateSummary(); });
+            });
+            row.querySelectorAll('[data-step]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    item.copies = clampCopies(item.copies + parseInt(b.getAttribute('data-step'), 10));
+                    paint(); updateSummary();
+                });
+            });
+            num.addEventListener('input', function () {
+                var v = parseInt(num.value, 10);
+                if (!isNaN(v)) { item.copies = clampCopies(v); updateSummary(); }
+            });
+            num.addEventListener('blur', function () { item.copies = clampCopies(num.value); paint(); updateSummary(); });
+            row.querySelector('.icon-btn').addEventListener('click', function () {
+                if (item.thumb && item.thumb.indexOf('blob:') === 0) URL.revokeObjectURL(item.thumb);
+                state.splice(state.indexOf(item), 1);
                 showError('');
-                const rejected = [];
-
-                Array.from(input.files).forEach(function (f) {
-                    const ext = f.name.split('.').pop().toLowerCase();
-                    const dup = state.some(function (s) {
-                        return s.file.name === f.name && s.file.size === f.size && s.file.lastModified === f.lastModified;
-                    });
-                    if (allowed.indexOf(ext) === -1) { rejected.push(f.name + ' (unsupported type)'); return; }
-                    if (dup) return;
-                    if (state.length >= MAX_FILES) { rejected.push(f.name + ' (max ' + MAX_FILES + ' files)'); return; }
-                    state.push({ file: f, type: 'bw', copies: 1 });
-                });
-
-                if (rejected.length) showError('Skipped: ' + rejected.join(', '));
                 render();
             });
 
-            form.addEventListener('submit', function (e) {
-                if (state.length === 0) {
-                    e.preventDefault();
-                    showError('Please choose at least one file to upload.');
-                }
+            list.appendChild(row);
+        });
+
+        input.files = dt.files; // keep the real input in sync, in the same order
+        updateSummary();
+    }
+
+    function addFiles(fileList) {
+        showError('');
+        var skipped = [];
+        Array.prototype.forEach.call(fileList, function (f) {
+            var e = ext(f.name);
+            var dup = state.some(function (s) {
+                return s.file.name === f.name && s.file.size === f.size && s.file.lastModified === f.lastModified;
             });
-        })();
-    </script>
+            if (ALLOWED.indexOf(e) === -1) { skipped.push(f.name + ' (unsupported type)'); return; }
+            if (dup) return;
+            if (state.length >= MAX_FILES) { skipped.push(f.name + ' (max ' + MAX_FILES + ' files)'); return; }
+            if (totalSize() + f.size > MAX_TOTAL) { skipped.push(f.name + ' (over 25 MB total)'); return; }
+            var item = { file: f, type: 'bw', copies: 1, pages: null, thumb: null, isPdf: e === 'pdf' };
+            state.push(item);
+            makeThumb(item);
+        });
+        if (skipped.length) showError('Skipped: ' + skipped.join(', '));
+        render();
+    }
 
-</body>
+    input.addEventListener('change', function () { addFiles(input.files); });
 
-</html>
+    ['dragenter', 'dragover'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
+    });
+    zone.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
+
+    form.addEventListener('submit', function (e) {
+        if (!state.length) {
+            e.preventDefault();
+            showError('Please add at least one file.');
+            return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading…';
+    });
+    window.addEventListener('pageshow', function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Place order';
+    });
+})();
+</script>
+{% endblock %}

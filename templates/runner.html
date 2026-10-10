@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Orders · CampusPrint runner{% endblock %}
+{% block wrapclass %}wide{% endblock %}
+{% block nav %}<a class="nav-link" href="{{ url_for('runner_logout') }}">Sign out</a>{% endblock %}
+
+{% macro act(order, new_status, label, view, ghost=False) %}
+<form method="POST" action="{{ url_for('runner_set_status', order_id=order.id) }}">
+    <input type="hidden" name="status" value="{{ new_status }}">
+    <input type="hidden" name="view" value="{{ view }}">
+    <button type="submit" class="btn sm{{ ' ghost' if ghost }}">{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Orders</h1>
+    <span class="sub">Refreshes automatically</span>
+</div>
+
+{% set tabs = [
+    ('active', 'Active', counts.pending + counts.printing),
+    ('pending', 'Pending', counts.pending),
+    ('printing', 'Printing', counts.printing),
+    ('delivered', 'Delivered', counts.delivered),
+    ('all', 'All', counts.pending + counts.printing + counts.delivered)
+] %}
+<nav class="tabs">
+    {% for key, label, n in tabs %}
+        <a class="tab{{ ' on' if view == key }}" href="{{ url_for('runner', status=key) }}">{{ label }}<small>{{ n }}</small></a>
+    {% endfor %}
+</nav>
+
+{% if not orders %}
+    <div class="empty">No orders here yet.</div>
+{% endif %}
+
+{% for order in orders %}
+<section class="card order">
+    <div class="order-head">
+        <div>
+            <div class="order-title">#{{ order.id }} · {{ order.name }}<span class="sub">{{ order.created_at|ist }}</span></div>
+            <div class="sub">
+                Deliver to <strong style="color:var(--ink)">{{ order.classroom }}</strong>
+                {% if order.phone %} · <a href="tel:{{ order.phone }}">{{ order.phone }}</a>{% endif %}
+            </div>
+        </div>
+        <span class="badge {{ order.status }}">{{ order.status|capitalize }}</span>
+    </div>
+
+    <div class="order-body">
+        {% for item in order.items %}
+        <div class="item">
+            <a class="thumb" data-ext="{{ item.ext }}" href="{{ url_for('runner_file', item_id=item.id, kind='file') }}" target="_blank" rel="noopener">
+                {% if item.thumb_key %}
+                <img loading="lazy" src="{{ url_for('runner_file', item_id=item.id, kind='thumb') }}" alt="First page of {{ item.filename }}">
+                {% endif %}
+            </a>
+            <div class="item-main">
+                <a class="item-name" href="{{ url_for('runner_file', item_id=item.id, kind='file') }}" target="_blank" rel="noopener" title="{{ item.filename }}">{{ item.filename }}</a>
+                <div class="item-meta">
+                    <span class="chip{{ ' color' if item.print_type == 'color' }}">{{ item.print_label }}</span>
+                    <span>{{ item.pages }} {{ 'page' if item.pages == 1 else 'pages' }}</span>
+                    <span>× {{ item.copies }} {{ 'copy' if item.copies == 1 else 'copies' }}</span>
+                </div>
+            </div>
+            <div class="item-cost">₹{{ item.cost }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="order-foot">
+        <span class="sub">{{ order.total_sheets }} {{ 'page' if order.total_sheets == 1 else 'pages' }} to print · <strong style="color:var(--ink)">₹{{ order.total_cost }}</strong> to collect</span>
+        <div class="actions">
+            {% if order.status == 'pending' %}
+                {{ act(order, 'printing', 'Start printing', view) }}
+            {% elif order.status == 'printing' %}
+                {{ act(order, 'pending', 'Back to pending', view, True) }}
+                {{ act(order, 'delivered', 'Mark delivered', view) }}
+            {% else %}
+                {{ act(order, 'printing', 'Reopen', view, True) }}
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    setInterval(function () {
+        if (document.visibilityState === 'visible') location.reload();
+    }, 45000);
+</script>
+{% endblock %}

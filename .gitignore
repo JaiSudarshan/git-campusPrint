@@ -1,18 +1,9 @@
-# Virtual environment
-.venv/
-env/
-venv/
-ENV/
-
-# Python bytecode & cache
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Environment files
+*.pyc
+.venv/
+venv/
+env/
 .env
-
-# IDE / Editor
-.vscode/
-.idea/
-*.swp
+instance/
+*.db
+local_uploads/

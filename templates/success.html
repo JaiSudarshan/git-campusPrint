@@ -1,52 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} placed · CampusPrint{% endblock %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Placed - CampusPrint</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-
-<body class="bg-light">
-    <div class="container py-5 mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-7 text-center">
-                <div class="card shadow-sm border-0 rounded-4 p-4 p-md-5">
-                    <div class="mb-3">
-                        <span class="display-3 text-success">✅</span>
-                    </div>
-                    <h2 class="fw-bold text-success mb-2">Order Placed!</h2>
-                    <p class="text-muted mb-4">A campus runner will deliver your printouts directly to your classroom.
-                    </p>
-
-                    <div class="card bg-light border-0 p-3 text-start mb-4 rounded-3">
-                        <h6 class="fw-bold text-secondary mb-3 border-bottom pb-2">Order Summary</h6>
-
-                        {% for item in items %}
-                        <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                            <div class="text-break">
-                                <strong>{{ loop.index }}. {{ item.filename }}</strong><br>
-                                <span class="small text-muted">{{ item.print_type }}</span>
-                            </div>
-                            <span class="badge bg-primary text-nowrap">× {{ item.copies }}</span>
-                        </div>
-                        {% endfor %}
-
-                        <hr>
-                        <p class="mb-2"><strong>Total copies:</strong> {{ total_copies }}</p>
-                        <p class="mb-2"><strong>Payment:</strong> <span class="badge bg-secondary">Pay on
-                                delivery</span></p>
-                        <p class="mb-0"><strong>Delivery Location:</strong> <span class="text-primary fw-semibold">{{
-                                classroom }}</span></p>
-                    </div>
-
-                    <a href="{{ url_for('index') }}"
-                        class="btn btn-primary btn-lg rounded-pill px-4 shadow-sm w-100">Place Another Order</a>
-                </div>
-            </div>
-        </div>
+{% block content %}
+<div class="card center">
+    <div class="check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
     </div>
-</body>
+    <h1>Order #{{ order.id }} placed</h1>
+    <p class="lede" style="margin-bottom:0">A runner will bring your printouts to your classroom.</p>
 
-</html>
+    <div class="lines">
+        {% for item in order.items %}
+        <div class="line">
+            <span class="name">{{ item.filename }}</span>
+            <span class="sub" style="white-space:nowrap">{{ item.print_label }} · {{ item.pages }}p × {{ item.copies }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="kv">
+        <div><span>Deliver to</span><span>{{ order.classroom }}</span></div>
+        <div><span>Name</span><span>{{ order.name }}</span></div>
+        <div><span>Estimated total</span><span>₹{{ order.total_cost }}</span></div>
+        <div><span>Payment</span><span>On delivery</span></div>
+    </div>
+
+    <a href="{{ url_for('index') }}" class="btn block">Place another order</a>
+</div>
+{% endblock %}
