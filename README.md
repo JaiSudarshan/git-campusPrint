@@ -1,6 +1,6 @@
-# Campus Print
+# CampusPrint
 
-Campus Print is a Flask-based web app for students to upload documents and request campus printing. The app records each print order, validates file types and page/copy limits, stores files locally or in Supabase, and lets a runner review and update job status.
+Campus Print is a Flask-based web app for students to upload documents and get their copies directly delivered to their classrooms without needing to wait in queue at the Xerox shop. The app records each print order, validates file types and page/copy limits, stores files in Supabase, and lets a runner review and take print.
 
 ## Features
 
